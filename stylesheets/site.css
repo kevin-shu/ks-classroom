@@ -1,0 +1,31 @@
+@charset "utf-8";
+@import "normalize";
+
+#remote-container video {
+    width: 25%;
+}
+
+#local-container {
+    position: fixed;
+    right: 12px;
+    bottom: 12px;
+    width: 200px;
+    // height: 100px;
+}
+#local-container video {
+    max-width: 100%;
+    // max-height: 100%;
+}
+
+#user-id-label {
+    background: blue;
+    color: white;
+    position: fixed;
+    left: 12px;
+    bottom: 12px;
+    padding: 8px;
+    border-radius: 4px;
+}
+#teacher-screen-container video {
+    max-width: 640px;
+}
