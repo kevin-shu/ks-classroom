@@ -1,12 +1,16 @@
 @charset "utf-8";
-@import "normalize";
+
+html, body, .main, .main>.row {
+    height: 100%;
+}
 
 #remote-container video {
-    width: 25%;
+    max-width: 100%;
+    max-height: 100%;
 }
 
 #local-container {
-    position: fixed;
+    position: absolute;
     right: 12px;
     bottom: 12px;
     width: 200px;
@@ -26,6 +30,75 @@
     padding: 8px;
     border-radius: 4px;
 }
-#teacher-screen-container video {
+.teacher-cam-container {
+    width: 200px;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+}
+.teacher-cam-container video {
+    width: 100%;
+    border: 1px solid black;
+}
+.teacher-screen-container video {
     max-width: 640px;
+}
+.student-screens-container {
+    padding: 12px;
+}
+.student-video-wrapper {
+    display: inline-block;
+    border: 1px solid black;
+    margin-right: 12px;
+}
+.student-video-wrapper > video {
+    width: 240px;
+}
+.student-video-wrapper.activated {
+    position: fixed;
+    // height: 80%;
+    // width: 80%;
+    top: 10%;
+    left: 10%;
+}
+.student-video-wrapper.activated > video {
+    width: 80%;
+}
+.operation-buttons-container {
+    position: fixed;
+    text-align: center;
+    width: 100%;
+    bottom: 8px;
+    display: none;
+}
+.messages-container-wrapper {
+    height: 100%;
+    padding-bottom: 60px;
+}
+.messages-container {
+    height: 100%;
+    background-color: white;
+    overflow-y: scroll;
+}
+.message-input {
+    margin-top: -52px;
+}
+.message-bubble-wrapper {
+
+}
+.message-bubble {
+    float: left;
+    border-radius: 8px;
+    background-color: #eee;
+    padding: 6px 12px;
+    margin: 0px 0px 8px 8px;
+    max-width: 80%;
+}
+.message-bubble.self {
+    float: right;
+    color: white;
+    background-color: #44d;
+}
+.message-bubble p {
+    margin: 0px;
 }
