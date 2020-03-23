@@ -1,77 +1,107 @@
 @charset "utf-8";
 
+.cursor-pointer {
+    cursor: pointer;
+}
+
+// #hangup-btn, #call-btn, #broadcast-btn, #stop-broadcasting-btn {
+//     display: none;
+// }
+
 html, body, .main, .main>.row {
     height: 100%;
 }
-
-#remote-container video {
+.main-video-block {
+    height: 600px;
+    background: black;
+    position: relative;
+}
+.main-video-wrapper {
+    height: 100%;
+    /* === 為了讓裡面的 video 置中 === */
+    display: flex; 
+    align-items: center;
+    justify-content: center;
+    /* ============================ */
+}
+.main-video-wrapper > video {
     max-width: 100%;
     max-height: 100%;
 }
 
 #local-container {
-    position: absolute;
-    right: 12px;
-    bottom: 12px;
-    width: 200px;
-    // height: 100px;
+    width: 100%;
 }
 #local-container video {
     max-width: 100%;
-    // max-height: 100%;
 }
-
-#user-id-label {
-    background: blue;
-    color: white;
-    position: fixed;
-    left: 12px;
-    bottom: 12px;
+.dashboard {
+    background-color: #eee;
+    width: 140px;
+    height: 100%;
+    display: inline-block;
     padding: 8px;
-    border-radius: 4px;
-}
-.teacher-cam-container {
-    width: 200px;
-    position: fixed;
-    top: 12px;
-    left: 12px;
-}
-.teacher-cam-container video {
-    width: 100%;
-    border: 1px solid black;
-}
-.teacher-screen-container video {
-    max-width: 640px;
+    float: left;
 }
 .student-screens-container {
-    padding: 12px;
-}
-.student-video-wrapper {
+    height: 100%;
+    width: calc( 100% - 160px );
     display: inline-block;
-    border: 1px solid black;
+    padding: 12px 0px;
+    float: left;
+}
+.student-screen-component {
+    line-height: 0.5;
+    display: inline-block;
+    border: 1px solid #ffa300;
     margin-right: 12px;
+    cursor: pointer;
+}
+.student-screen-component > .student-user-id {
+    background-color: #ffa300;
+    color: white;
+    padding: 4px 8px;
+    font-weight:bold;
+    line-height: 1.2;
+}
+.student-video-wrapper{
+    height: 120px;
+    width: 240px;
+    text-align: center;
+    background-color: black;
 }
 .student-video-wrapper > video {
-    width: 240px;
-}
-.student-video-wrapper.activated {
-    position: fixed;
-    // height: 80%;
-    // width: 80%;
-    top: 10%;
-    left: 10%;
-}
-.student-video-wrapper.activated > video {
-    width: 80%;
+    max-height: 100%;
+    max-width: 100%;
 }
 .operation-buttons-container {
-    position: fixed;
+    position: absolute;
     text-align: center;
     width: 100%;
     bottom: 8px;
     display: none;
 }
+.teacher-cam-container {
+    width: 100%;
+    height: 160px;
+    position: absolute;
+    background: black;
+    /* === 為了讓裡面的 video 置中 === */
+    display: flex; 
+    align-items: center;
+    justify-content: center;
+    /* ============================ */
+}
+.teacher-cam-container video {
+    max-width: 100%;
+    max-height: 100%;
+    border: 1px solid black;
+}
+.teacher-screen-container video {
+    max-width: 640px;
+}
 .messages-container-wrapper {
+    padding-top: 172px;
     height: 100%;
     padding-bottom: 60px;
 }
@@ -82,9 +112,6 @@ html, body, .main, .main>.row {
 }
 .message-input {
     margin-top: -52px;
-}
-.message-bubble-wrapper {
-
 }
 .message-bubble {
     float: left;
@@ -98,6 +125,10 @@ html, body, .main, .main>.row {
     float: right;
     color: white;
     background-color: #44d;
+}
+.message-bubble.teacher {
+    color: white;
+    background-color: #4daf4d;
 }
 .message-bubble p {
     margin: 0px;

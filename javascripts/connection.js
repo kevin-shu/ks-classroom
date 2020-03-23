@@ -1,7 +1,19 @@
 'use strict'
 
+// ================================
+//  A. Initialize 初始化設定
+// ================================
+
 var role = "",
     conferenceName = conferenceName || "kodingschool";
+var CALLING_STATE = 0;  // 0: pending, waitting for calling
+                        // 1: 1 v 1 calling
+                        // 2: broadcasting audio
+var CALLING_STATE_NAME = {
+    0: "待命中",
+    1: "1對1通話中",
+    2: "廣播中"
+}
 
 if (id=="teacher") {
     role = "teacher";
@@ -9,41 +21,41 @@ if (id=="teacher") {
     role = "student";
 }
 
-apiRTC.setLogLevel(0);
 var localStream = null,
     screensharingStream = null,
     connectedConversation = null,
     connectedSession = null;
 
-// Register
-
 var cloudUrl = 'https://cloud.apizee.com';
 
-//==============================
-// 1/ CREATE USER AGENT
-//==============================
+// ApiRTC: CREATE USER AGENT
 var ua = new apiRTC.UserAgent({
     // uri: 'apzkey:myDemoApiKey'
     uri: 'apzkey:bc1d04c251c52afa9049785fd314191b'
 });
 
-//==============================
-// 2/ REGISTER
-//==============================
+// ApiRTC: REGISTER
 var registerOptions = {
     // cloudUrl: cloudUrl
     id: id
 }
 
-// if (role=="teacher") {
-//     registerOptions.id = "teacher"
-// }
+// ================================
+//  B. Execation 主程式
+// ================================
+
+apiRTC.setLogLevel(0);
 
 ua.register(registerOptions).then(function(session) {
 
     console.log(session);
     id = session.id;
-    $("#user-id-label").text(id);
+    $("#user-id").text(id);
+    if (role=="teacher") {
+        $("#user-role").text("講師");
+    } else {
+        $("#user-role").text("學生");
+    }
 
     // Save session
     connectedSession = session;
@@ -56,54 +68,29 @@ ua.register(registerOptions).then(function(session) {
                 console.info("contactList  connectedConversation.getContacts() :", contactList);
             }
         })
-        //==============================
         // WHEN A CONTACT CALLS ME
-        //==============================
         .on('incomingCall', function (invitation) {
             console.log("MAIN - incomingCall");
-            alert("incoming call!")
-            //==============================
             // ACCEPT CALL INVITATION
-            //==============================
             invitation.accept(null, {mediaTypeForIncomingCall : 'AUDIO'}).then(function (call) {
                 setCallListeners(call);
-                addHangupButton(call.getId());
             });
-            // Display hangup button
-            // document.getElementById('hangup').style.display = 'inline-block';
         })
         .on("incomingScreenSharingCall", function (call) { //When client receives an screenSharing call from another user
             console.log("screenSharing received from :", call.getContact().id);
             setCallListeners(call);
-            addHangupButton(call.getId());
         });
     joinConference(conferenceName);
 });
 
+// ================================
+//  C. Functions 函式們
+// ================================
+
 function joinConference(name) {
-    //==============================
-    // 3/ CREATE CONVERSATION
-    //==============================
-
+    // CREATE CONVERSATION
     // ua.enableMeshRoomMode(true); //Activate Mesh room mode
-
     connectedConversation = connectedSession.getConversation(name);
-
-    //==============================
-    // 定期確認講師的畫面是否存在
-    //==============================
-    // setInterval(function(){
-    //     console.log("checking teacher's stream...")
-    //     if(checkTeacherScreenStreamAttached()){
-    //         // Do nothing
-    //     } else {
-    //         console.log("there's no teacher's stream!")
-    //         var teacherStream = getStream(connectedConversation, "teacher");
-    //         if(teacherStream){console.log("Finded teacher's stream!")}
-    //         console.log(teacherStream);
-    //         teacherStream.addInDiv('teacher-cam-container', 'remote-media-' + teacherStream.streamId, {}, false);
-    //     }
-    // },10000);
 
     //==========================================================
     // 4/ ADD EVENT LISTENER : WHEN NEW STREAM IS AVAILABLE IN CONVERSATION
@@ -114,10 +101,6 @@ function joinConference(name) {
 
         if (streamInfo.listEventType === 'added') {
             if (streamInfo.isRemote === true && ( streamInfo.context.to===id || streamInfo.context.to==="all" )) {
-                // 如果加入的是老師而且是螢幕分享 (但是現在不需要了)
-                // if( streamInfo.contact.id==="teacher" && streamInfo.context.type==="screen" ){
-                //     teacherScreenStreamId = streamInfo.streamId;
-                // }
                 connectedConversation.subscribeToMedia(streamInfo.streamId)
                     .then(function (stream) {
                         console.log('subscribeToMedia success');
@@ -134,36 +117,41 @@ function joinConference(name) {
         if (role=="teacher") {
             attachStudentScreenStream(stream);
         } else if (stream.contact.id=="teacher") {
-            // Subscribed Stream is available for display
-            // Get remote media container
-            var container = document.getElementById('teacher-cam-container');
-            // Create media element
-            var mediaElement = document.createElement('video');
-            mediaElement.id = 'remote-media-' + stream.streamId;
-            mediaElement.autoplay = true; // 一定要 autoplay，不然白畫面
-            mediaElement.muted = true; // 要 autoplay 一定要 muted
-            // Add media element to media container
-            container.appendChild(mediaElement);
-            // Attach stream
-            stream.attachToElement(mediaElement);
+            // 如果是老師群撥分享熒幕
+            if (stream.isScreensharing()) {
+                stream.addInDiv("main-video-wrapper", 'remote-media-' + stream.streamId, {}, false);
+            // 如果是老師分享 webcam
+            } else {
+                // Subscribed Stream is available for display
+                // Get remote media container
+                var container = document.getElementById('teacher-cam-container');
+                var mediaElement = document.createElement('video');
+                mediaElement.id = 'remote-media-' + stream.streamId;
+                mediaElement.autoplay = true; // 一定要 autoplay，不然白畫面
+                mediaElement.muted = true; // 如果沒有 mute 會造成 autoplay 失敗!
+                container.appendChild(mediaElement);
+                stream.attachToElement(mediaElement);
+
+                //======================================================
+                // 非常重要：
+                // 依據 Chrome 的 autoplay policy，用戶必須先和這個網頁有所互動才行，包含點擊。
+                // 因此我們在這裡先加入一個 alert，等用戶點擊後，就可取消靜音了
+                //======================================================
+                alert("與老師建立連線！");
+                mediaElement.muted = false; // 避免群撥時學生聽不到老師的聲音
+            }
         }
     }).on('streamRemoved', function(stream) {
-        if (stream.contact.id=="teacher") {
-            stream.removeFromDiv('teacher-cam-container', 'remote-media-' + stream.streamId);
-        } else {
-            $('#remote-media-' + stream.streamId).remove();
-            $('#remote-media-' + stream.streamId + '-wrapper').remove();
-            // stream.removeFromDiv('student-screens-container', 'remote-media-' + stream.streamId);
-        }
+        $('#remote-media-' + stream.streamId).remove();
+        // 如果是老師接收到學生關 stream 的事件，要把 component 也刪掉
+        $('#remote-media-' + stream.streamId + '-wrapper').remove();
     });
 
-    //==============================
     // 如果是老師，創造並發佈 LOCAL STREAM
-    //==============================
     if (role==="teacher") {
         var createStreamOptions = {};
         createStreamOptions.constraints = {
-            audio: false,
+            audio: true,
             video: true
         };
 
@@ -174,8 +162,11 @@ function joinConference(name) {
 
                 // Save local stream
                 localStream = stream;
-                stream.removeFromDiv('local-container', 'local-media');
-                stream.addInDiv('local-container', 'local-media', {}, true);
+                // 一開始不用發出聲音，先關聲音
+                localStream.muteAudio();
+
+                stream.removeFromDiv('teacher-cam-container', 'local-media');
+                stream.addInDiv('teacher-cam-container', 'local-media', {}, true);
                 //==============================
                 // 6/ JOIN CONVERSATION
                 //==============================
@@ -186,8 +177,7 @@ function joinConference(name) {
                         //==============================
                         connectedConversation.publish(localStream, {
                             qos:{videoStartQuality:"medium"},
-                            context:{type:"webcam",to:"all"},
-                            videoOnly:true
+                            context:{type:"webcam",to:"all"}
                         });
                     }).catch(function (err) {
                         console.error('Conversation join error', err);
@@ -209,9 +199,7 @@ function joinConference(name) {
     }
 }
 
-//==============================
-// SCREENSHARING FEATURE
-//==============================
+// 螢幕分享
 function shareScreen (receiver) {
 
     if (screensharingStream === null) {
@@ -279,6 +267,25 @@ function shareScreen (receiver) {
     }
 }
 
+function broadcast () {
+    if (role!="teacher") {
+        console.warn("你不是老師，不可群撥！");
+    } else if (CALLING_STATE==0) {
+        shareScreen("all");
+        localStream.unmuteAudio()
+        updateCallingState();
+    } else {
+        console.warn("目前非待命狀態，不可群撥！");
+    }
+}
+
+function stopBroadcasting () {
+    screensharingStream.
+    localStream.muteAudio();
+    updateCallingState();
+}
+
+// 撥給學生
 function callStudent(receiverId) {
     console.log("calling: ",receiverId);
     var contact = connectedSession.getOrCreateContact(receiverId);
@@ -298,7 +305,7 @@ function callStudent(receiverId) {
         var shareScreenCall = contact.shareScreen(callConfiguration);
         if (shareScreenCall !== null) {
             setCallListeners(shareScreenCall);
-            addHangupButton(audioCall.getId(), shareScreenCall.getId());
+            updateCallingState();
         } else {
             // 如果螢幕分享失敗，掛掉聲音的電話
             audioCall.hangUp();
@@ -309,7 +316,39 @@ function callStudent(receiverId) {
     }
 }
 
+// 確認現在的通話，並更改 CALLING_STATE，必要時強制結束所有通話
+function updateCallingState() {
+    // @TODO: 還需要檢查是否群撥
+
+    var newState = CALLING_STATE,
+        onlineCallIds = Object.keys(connectedSession.getCalls());
+
+    // 如果有 0 個通話，代表應該是待命中 (但也有可能正在群撥)
+    if (onlineCallIds.length==0) {
+        if ( !localStream.isAudioMuted() ) {
+            newState = 2;
+        } else {
+            newState = 0;
+        }
+    // 如果有兩個通話，代表應該是螢幕和聲音，正常
+    } else if (onlineCallIds.length==2) {
+        newState = 1;
+    // 都不是的話就怪怪的了，過 0.2 秒再檢查一次
+    } else {
+        setTimeout(updateCallingState,200);
+    }
+
+    // 如果狀態有變化:
+    if (CALLING_STATE!=newState){
+        // 正式更新狀態
+        CALLING_STATE = newState;
+        // 觸發 “狀態改變” 事件
+        $(window).trigger("stateChanged");
+    }
+}
+
 function setCallListeners(call) {
+
     call.on("localStreamAvailable", function (stream) {
         console.log('localStreamAvailable');
         // 不用加這行，不然會有回音，因為我們已經分享 local stream 了
@@ -317,20 +356,20 @@ function setCallListeners(call) {
         stream
             .on("stopped", function () { //When client receives an screenSharing call from another user
                 console.error("Stream stopped");
-                $('#local-media-' + stream.getId()).remove();
+                // $('#local-media-' + stream.getId()).remove();
             });
     })
     .on("streamAdded", function (stream) {
-        console.log('stream :', stream);
         if (role==="teacher") {
             stream.addInDiv('calling-media-container', 'remote-media-' + stream.streamId, {}, false);
         } else {
-            stream.addInDiv('teacher-screen-container', 'remote-media-' + stream.streamId, {}, false);
+            stream.addInDiv('main-video-wrapper', 'remote-media-' + stream.streamId, {}, false);
         }
     })
     .on('streamRemoved', function (stream) {
         // Remove media element
         document.getElementById('remote-media-' + stream.getId()).remove();
+
     })
     .on('userMediaError', function (e) {
         console.log('userMediaError detected : ', e);
@@ -345,90 +384,104 @@ function setCallListeners(call) {
         console.log('desktopCapture event : ', e);
         $('#hangup-' + call.getId()).remove();
     })
+    .on('response', function(){
+        updateCallingState();
+    })
+    .on('remoteStreamUpdated', function(){
+        updateCallingState();
+    })
     .on('hangup', function () {
-        // $('#hangup-' + call.getId()).remove();
         $("#hangup-button").remove();
+        updateCallingState();
     });
 }
-
-function addHangupButton(audioCallId, shareScreenCallId) {
-    var btn = document.createElement('button');
-    btn.innerText = "Hangup";
-    btn.id = "hangup-button";
-    $(btn).data("audio-call-id",audioCallId);
-    $(btn).data("share-screen-call-id",shareScreenCallId);
-    $("#operation-buttons-container").append(btn);
-    $(btn).click(function(){
-        var audioCallId = $(this).data("audio-call-id"),
-            shareScreenCallId = $(this).data("share-screen-call-id");
-        connectedSession.getCall(audioCallId).hangUp();
-        shareScreenCall = connectedSession.getCall(shareScreenCallId).hangUp();
-    })
-}
-
-// // 確認老師的 webcam 是否存在於畫面中
-// function checkTeacherScreenStreamAttached() {
-//     // If there's no teacher's webcam
-//     // @TODO: 應該要更進一步檢查老師的 Webcam stream 死掉沒有
-//     if( $("#teacher-cam-container video").length==0 ){
-//         return false;
-//     } else {
-//         return true;
-//     }
-// }
-
-// // 從 conversation 取得特定 user 的 stream 
-// function getStream(connectedConversation, userId) {
-//     var streams = connectedConversation.getAvailableStreamList();
-//     for (var i=0; i<streams.length; i++) {
-//         if(streams[i].contact.id==userId){
-//             return streams[i];
-//         }
-//     }
-//     return null;
-// }
 
 function attachStudentScreenStream(stream) {
     // Subscribed Stream is available for display
     // Get remote media container
     var container = document.getElementById('student-screens-container');
     // Create link tag 
-    var linkTag = document.createElement('a');
-    linkTag.id = 'remote-media-' + stream.streamId + '-wrapper';
-    linkTag.classList.add( "js-student-video-wrapper" );
-    linkTag.classList.add( "student-video-wrapper" );
-    linkTag.href="javascript:void(0)"
-    $(linkTag).data("id",stream.contact.id);
+    var studentComponent = document.createElement('div');
+    studentComponent.id = 'remote-media-' + stream.streamId + '-wrapper';
+    studentComponent.classList.add( "js-student-screen-component" );
+    studentComponent.classList.add( "student-screen-component" );
+    $(studentComponent).data("id",stream.contact.id);
+    var videoWrapper = $("<div class='student-video-wrapper'></div>");
     // Create media element
     var mediaElement = document.createElement('video');
     mediaElement.id = 'remote-media-' + stream.streamId;
     mediaElement.autoplay = true;
     mediaElement.muted = false;
     // Add media element to media container
-    linkTag.appendChild( mediaElement );
-    container.appendChild(linkTag);
+    videoWrapper.append(mediaElement);
+    $(studentComponent).append( videoWrapper );
+    $(studentComponent).append("<div class='student-user-id'>"+stream.contact.id+"</div>");
+    container.appendChild(studentComponent);
     // Attach stream
     stream.attachToElement(mediaElement);
 }
 
-if (role=="teacher") {
-    $("#student-screens-container").on("click",".js-student-video-wrapper",function(){
+
+// ================================
+//  D. Event subscription 註冊事件
+// ================================
+
+// 當學生螢幕被點擊:
+$("#student-screens-container").on("click",".js-student-screen-component",function(){
+    if (role=="teacher") {
         var receiver = $(this).data("id");
-        this.classList.add("activated");
-        $("#operation-buttons-container").show();
+        $("#main-video-wrapper").append($(this).find("video"));
+        $("#operation-buttons-container").show(); // @TODO: 如果學生離線，按鈕還會在
         $("#call-btn").data("receiver-id",receiver);
-    });
-}
-
-$(window).on("keyup", function (e){
-    if (e.which == 27) {
-        $(".student-video-wrapper.activated").removeClass("activated");
-        $("#operation-buttons-container").hide();
-        $("#hangup-button").remove();
     }
-})
+});
 
+// 當 call 按鍵被點下:
 $("#call-btn").click(function(){
     var receiverId = $(this).data("receiver-id");
     callStudent(receiverId);
 });
+
+$("#hangup-btn").click(function(){
+    var onlineCalls = connectedSession.getCalls();
+    for (callId in onlineCalls) {
+        onlineCalls[callId].hangUp();
+    }
+});
+
+$("#broadcast-btn").click(function(){
+    broadcast();
+});
+$("#stop-broadcasting-btn").click(function(){
+    broadcast();
+});
+
+$(window).on("stateChanged", function(){
+    if (role=="teacher") {
+        if (CALLING_STATE == 1) {
+            $("#hangup-btn").show();
+            $("#call-btn").hide();
+            $("#broadcast-btn").hide();
+            $("#stop-broadcasting-btn").hide();
+        } else if (CALLING_STATE == 0) {
+            $("#hangup-btn").hide();
+            $("#call-btn").show();
+            $("#broadcast-btn").show();
+            $("#stop-broadcasting-btn").hide();
+        } else if (CALLING_STATE == 2) {
+            $("#hangup-btn").hide();
+            $("#call-btn").hide();
+            $("#broadcast-btn").hide();
+            $("#stop-broadcasting-btn").show();
+        }
+    } else {
+        $("#hangup-btn").remove();
+        $("#call-btn").remove();
+        $("#broadcast-btn").remove();
+        $("#stop-broadcasting-btn").remove();
+    }
+
+    // 修改狀態顯示欄位
+    $("#user-state").text(CALLING_STATE_NAME[CALLING_STATE]);
+});
+$(window).trigger("stateChanged"); // 先依狀態校正一下 UI;

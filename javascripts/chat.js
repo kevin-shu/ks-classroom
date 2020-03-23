@@ -7,18 +7,23 @@ messagesRef.on("child_added", function (snapshot) {
 
     if (snapshot.val().sender==id) {
         messageBubble.addClass("self");
+    } else if (snapshot.val().sender=="teacher") {
+        messageBubble.addClass("teacher");
     } else {
-        var sentTimeString = (new Date(snapshot.val().timestamp)).toLocaleString();
-        messageBubble.append("<small>"+snapshot.val().sender+" "+sentTimeString+"</small>");
     }
+    // 加上發送者及時間
+    var sentTimeString = (new Date(snapshot.val().timestamp)).toLocaleString();
+    messageBubble.append("<small>"+snapshot.val().sender+" "+sentTimeString+"</small>");
+    // 加上訊息內容
     messageBubble.append("<p>"+snapshot.val().message+"</p>");
+    // 把 bubble 加到 wrapper 中
     messageElement.append(messageBubble);
     $("#messages-container").append(messageElement);
 
     scrollMessagesContainerToBottom();
 });
 
-$("#message-input").keyup(function(event){
+$("#message-input").keypress(function(event){
     if(event.which==13){
         var msg = $("#message-input").val();
         if (msg!="") {
