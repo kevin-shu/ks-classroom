@@ -144,7 +144,7 @@ function joinConference(name) {
     }).on('streamRemoved', function(stream) {
         $('#remote-media-' + stream.streamId).remove();
         // 如果是老師接收到學生關 stream 的事件，要把 component 也刪掉
-        $('#remote-media-' + stream.streamId + '-wrapper').remove();
+        $('#remote-media-' + stream.streamId + '-component').remove();
     });
 
     // 如果是老師，創造並發佈 LOCAL STREAM
@@ -257,30 +257,36 @@ function shareScreen (receiver) {
                 console.error('Could not create screensharing stream :', err);
             });
     } else {
+        // stopSharingScreen()
+        // shareScreen(receiver);
+    }
+}
+
+function stopSharingScreen() {
+    if (screensharingStream) {
         connectedConversation.unpublish(screensharingStream);
         screensharingStream.release();
         screensharingStream = null;
-        try {
-            document.getElementById('local-screensharing').remove();
-        } catch {}
-        shareScreen(receiver);
     }
+    try {
+        document.getElementById('local-screensharing').remove();
+    } catch {}
 }
 
 function broadcast () {
     if (role!="teacher") {
-        console.warn("你不是老師，不可群撥！");
+        console.warn("你不是老師，不可廣播！");
     } else if (CALLING_STATE==0) {
         shareScreen("all");
         localStream.unmuteAudio()
         updateCallingState();
     } else {
-        console.warn("目前非待命狀態，不可群撥！");
+        console.warn("目前非待命狀態，不可廣播！");
     }
 }
 
 function stopBroadcasting () {
-    screensharingStream.
+    stopSharingScreen();
     localStream.muteAudio();
     updateCallingState();
 }
@@ -318,12 +324,11 @@ function callStudent(receiverId) {
 
 // 確認現在的通話，並更改 CALLING_STATE，必要時強制結束所有通話
 function updateCallingState() {
-    // @TODO: 還需要檢查是否群撥
 
     var newState = CALLING_STATE,
         onlineCallIds = Object.keys(connectedSession.getCalls());
 
-    // 如果有 0 個通話，代表應該是待命中 (但也有可能正在群撥)
+    // 如果有 0 個通話，代表應該是待命中 (但也有可能正在廣播)
     if (onlineCallIds.length==0) {
         if ( !localStream.isAudioMuted() ) {
             newState = 2;
@@ -402,7 +407,7 @@ function attachStudentScreenStream(stream) {
     var container = document.getElementById('student-screens-container');
     // Create link tag 
     var studentComponent = document.createElement('div');
-    studentComponent.id = 'remote-media-' + stream.streamId + '-wrapper';
+    studentComponent.id = 'remote-media-' + stream.streamId + '-component';
     studentComponent.classList.add( "js-student-screen-component" );
     studentComponent.classList.add( "student-screen-component" );
     $(studentComponent).data("id",stream.contact.id);
@@ -429,6 +434,13 @@ function attachStudentScreenStream(stream) {
 // 當學生螢幕被點擊:
 $("#student-screens-container").on("click",".js-student-screen-component",function(){
     if (role=="teacher") {
+        // 把正在播放的影片搬回去
+        var currentMainVideo = document.querySelector("#main-video-wrapper video");
+        if (currentMainVideo) {
+            var componentId = currentMainVideo.id+'-component';
+            $("#"+componentId+">.student-video-wrapper").append(currentMainVideo);
+        }
+        // 搬新的影片到主熒幕
         var receiver = $(this).data("id");
         $("#main-video-wrapper").append($(this).find("video"));
         $("#operation-buttons-container").show(); // @TODO: 如果學生離線，按鈕還會在
@@ -453,7 +465,7 @@ $("#broadcast-btn").click(function(){
     broadcast();
 });
 $("#stop-broadcasting-btn").click(function(){
-    broadcast();
+    stopBroadcasting();
 });
 
 $(window).on("stateChanged", function(){
